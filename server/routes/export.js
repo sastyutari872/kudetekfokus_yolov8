@@ -183,6 +183,7 @@ router.get('/pdf/meeting/:meetingId', auth, async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="meeting-report-${meetingId}.pdf"`);
     
+    const doc = new PDFDocument();
     doc.pipe(res);
 
     // Header
@@ -341,24 +342,27 @@ router.get('/pdf/subject/:subjectId', auth, async (req, res) => {
       doc.moveDown();
 
       // Meeting Details by Class
-       .text(`Total Classes: ${totalKelas}`)
-       .text(`Total Subjects: ${totalMataKuliah}`)
-       .text(`Total Meetings: ${totalPertemuan}`)
-       .text(`Total Instructors: ${totalDosen}`)
-       .text(`Average Focus Rate: ${averageFocus.toFixed(2)}%`);
+      doc.fontSize(12)
+         .text(`Total Classes: ${totalKelas}`)
+         .text(`Total Subjects: ${totalMataKuliah}`)
+         .text(`Total Meetings: ${totalPertemuan}`)
+         .text(`Total Instructors: ${totalDosen}`)
+         .text(`Average Focus Rate: ${averageFocus.toFixed(2)}%`);
           
-          classMeetings.forEach((meeting, index) => {
-            if (doc.y > 700) {
-              doc.addPage();
-    if (formattedTrends.length > 0) {
-            doc.text(`Meeting ${meeting.pertemuan_ke} (${meeting.tanggal.toLocaleDateString()}): ${meeting.hasil_akhir_kelas.fokus.toFixed(1)}% focus, ${meeting.hasil_akhir_kelas.jumlah_hadir} students`);
-          });
-          
-      formattedTrends.forEach((trend) => {
+      meetings.forEach((meeting, index) => {
+        if (doc.y > 700) {
+          doc.addPage();
+        }
+        if (formattedTrends.length > 0) {
+          doc.text(`Meeting ${meeting.pertemuan_ke} (${meeting.tanggal.toLocaleDateString()}): ${meeting.hasil_akhir_kelas.fokus.toFixed(1)}% focus, ${meeting.hasil_akhir_kelas.jumlah_hadir} students`);
         }
       });
+          
+      formattedTrends.forEach((trend) => {
         const subjectName = meeting.mata_kuliah_id ? meeting.mata_kuliah_id.nama : meeting.mata_kuliah;
         doc.text(`${subjectName} - ${meeting.kelas} (Meeting ${meeting.pertemuan_ke}): ${meeting.hasil_akhir_kelas.fokus.toFixed(1)}% focus on ${new Date(meeting.tanggal).toLocaleDateString()}`);
+      });
+    } else {
       doc.fontSize(12).text('No meetings found for this subject.');
     }
 
