@@ -19,7 +19,6 @@ import flaskIntegrationRoutes from './routes/flaskIntegration.js';
 import jadwalRoutes from './routes/jadwal.js';
 import modelsRoutes from './routes/models.js';
 import profileRoutes from './routes/profile.js';
-import dashboardRoutes from './routes/dashboard.js';
 import { createDummyData } from './utils/seedData.js';
 
 const __filename = fileURLToPath(import.meta.url);
