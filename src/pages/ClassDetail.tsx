@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import { ArrowLeft, Users, Calendar, GraduationCap, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Users, Calendar, GraduationCap, BarChart3, Download, FileText } from 'lucide-react';
+import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 
 interface Student {
@@ -70,6 +71,27 @@ export default function ClassDetail() {
     }
   };
 
+  const exportClassToPDF = async () => {
+    try {
+      const response = await axios.get(`/export/pdf/class-detail/${id}`, {
+        responseType: 'blob'
+      });
+      
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `class-${kelas?.nama_kelas}-detail-report.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Class report exported successfully');
+    } catch (error) {
+      console.error('Error exporting class PDF:', error);
+      toast.error('Failed to export class report');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -109,6 +131,16 @@ export default function ClassDetail() {
             <p className="text-sm text-gray-500">{kelas.tahun_ajaran} - {kelas.semester}</p>
           </div>
         </div>
+        
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={exportClassToPDF}
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700"
+        >
+          <FileText className="h-4 w-4 mr-2" />
+          Export PDF Report
+        </motion.button>
       </div>
 
       {/* Stats Cards */}

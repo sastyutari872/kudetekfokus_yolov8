@@ -11,7 +11,9 @@ import {
   BarChart3,
   Users,
   Award,
-  Target
+  Target,
+  Download,
+  FileText
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 import { useAuth } from '../contexts/AuthContext';
@@ -91,6 +93,27 @@ export default function Dashboard() {
     }
   };
 
+  const exportDashboardToPDF = async () => {
+    try {
+      const response = await axios.get('/export/pdf/dashboard', {
+        responseType: 'blob'
+      });
+      
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `dashboard-report-${new Date().toISOString().split('T')[0]}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Dashboard report exported successfully');
+    } catch (error) {
+      console.error('Error exporting dashboard PDF:', error);
+      toast.error('Failed to export dashboard report');
+    }
+  };
+
   const statCards = [
     {
       title: 'Total Classes',
@@ -154,13 +177,26 @@ export default function Dashboard() {
         animate={{ opacity: 1, y: 0 }}
         className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 rounded-xl p-6 text-white"
       >
-        <h1 className="text-2xl font-bold">Welcome back, {user?.nama_lengkap}!</h1>
-        <p className="mt-2 opacity-90">
-          {user?.role === 'admin' 
-            ? "Here's an overview of the focus monitoring system performance."
-            : "Here's what's happening with your classes today."
-          }
-        </p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold">Welcome back, {user?.nama_lengkap}!</h1>
+            <p className="mt-2 opacity-90">
+              {user?.role === 'admin' 
+                ? "Here's an overview of the focus monitoring system performance."
+                : "Here's what's happening with your classes today."
+              }
+            </p>
+          </div>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={exportDashboardToPDF}
+            className="flex items-center px-4 py-2 bg-white bg-opacity-20 backdrop-blur-sm rounded-lg font-medium hover:bg-opacity-30 transition-all duration-200"
+          >
+            <FileText className="h-5 w-5 mr-2" />
+            Export Report
+          </motion.button>
+        </div>
       </motion.div>
 
       {/* Stats Cards */}

@@ -74,7 +74,7 @@ export default function SubjectDetail() {
 
   const exportToPDF = async () => {
     try {
-      const response = await axios.get(`/api/export/pdf/subject/${id}`, {
+      const response = await axios.get(`/export/pdf/subject/${id}`, {
         responseType: 'blob'
       });
       
@@ -95,7 +95,7 @@ export default function SubjectDetail() {
 
   const exportToExcel = async () => {
     try {
-      const response = await axios.get(`/api/export/excel/subject/${id}`, {
+      const response = await axios.get(`/export/excel/subject/${id}`, {
         responseType: 'blob'
       });
       

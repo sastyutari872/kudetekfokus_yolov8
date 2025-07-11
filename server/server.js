@@ -19,6 +19,7 @@ import flaskIntegrationRoutes from './routes/flaskIntegration.js';
 import jadwalRoutes from './routes/jadwal.js';
 import modelsRoutes from './routes/models.js';
 import profileRoutes from './routes/profile.js';
+import dashboardRoutes from './routes/dashboard.js';
 import { createDummyData } from './utils/seedData.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -59,6 +60,7 @@ app.use('/api/flask', flaskIntegrationRoutes);
 app.use('/api/jadwal', jadwalRoutes);
 app.use('/api/models', modelsRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/export', exportRoutes);
 
 // YOLO Integration endpoint
 app.post('/api/yolo-detection', (req, res) => {

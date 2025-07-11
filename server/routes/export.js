@@ -74,16 +74,111 @@ router.get('/pdf/meeting/:meetingId', auth, async (req, res) => {
   try {
     const { meetingId } = req.params;
     
-    const meeting = await Pertemuan.findById(meetingId)
-      .populate('mata_kuliah_id', 'nama kode')
-      .populate('dosen_id', 'nama_lengkap departemen');
-
-    if (!meeting) {
-      return res.status(404).json({ message: 'Meeting not found' });
+    let query = {};
+    
+    // Filter by user role
+    if (req.user.role === 'dosen') {
+      query.dosen_id = req.user._id;
     }
 
-    // Create PDF
-    const doc = new PDFDocument();
+    const totalKelas = await Kelas.countDocuments();
+    const totalMataKuliah = await MataKuliah.countDocuments(
+      req.user.role === 'dosen' ? { dosen_id: req.user._id } : {}
+    );
+    const totalPertemuan = await Pertemuan.countDocuments(query);
+    const totalDosen = await User.countDocuments({ role: 'dosen' });
+
+    // Get recent meetings
+    const recentMeetings = await Pertemuan.find(query)
+      .populate('dosen_id', 'nama_lengkap')
+      .populate('mata_kuliah_id', 'nama')
+      .sort({ tanggal: -1 })
+      .limit(10);
+
+    // Get focus statistics
+    const allMeetings = await Pertemuan.find(query);
+    const totalFocusData = allMeetings.reduce((acc, meeting) => {
+      acc.totalFocus += meeting.hasil_akhir_kelas.fokus || 0;
+      acc.count++;
+      return acc;
+    }, { totalFocus: 0, count: 0 });
+
+    const averageFocus = totalFocusData.count > 0 
+      ? (totalFocusData.totalFocus / totalFocusData.count)
+      : 0;
+
+    // Get class performance
+    const classPerformance = await Pertemuan.aggregate([
+      ...(req.user.role === 'dosen' ? [{ $match: { dosen_id: req.user._id } }] : []),
+      {
+        $group: {
+          _id: '$kelas',
+          averageFocus: { $avg: '$hasil_akhir_kelas.fokus' },
+          totalMeetings: { $sum: 1 }
+        }
+      },
+      { $sort: { averageFocus: -1 } },
+      { $limit: 10 }
+    ]);
+
+    // Get dosen performance (admin only)
+    let dosenPerformance = [];
+    if (req.user.role === 'admin') {
+      dosenPerformance = await Pertemuan.aggregate([
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'dosen_id',
+            foreignField: '_id',
+            as: 'dosen'
+          }
+        },
+        { $unwind: '$dosen' },
+        {
+          $group: {
+            _id: '$dosen_id',
+            nama_lengkap: { $first: '$dosen.nama_lengkap' },
+            averageFocus: { $avg: '$hasil_akhir_kelas.fokus' },
+            totalMeetings: { $sum: 1 },
+            totalClasses: { $addToSet: '$kelas' }
+          }
+        },
+        {
+          $addFields: {
+            totalClasses: { $size: '$totalClasses' }
+          }
+        },
+        { $sort: { averageFocus: -1 } },
+        { $limit: 10 }
+      ]);
+    }
+
+    // Get focus trends
+    const focusTrends = await Pertemuan.aggregate([
+      { $match: query },
+      {
+        $group: {
+          _id: {
+            month: { $month: '$tanggal' },
+            year: { $year: '$tanggal' }
+          },
+          averageFocus: { $avg: '$hasil_akhir_kelas.fokus' },
+          totalMeetings: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } }
+    ]);
+
+    const monthNames = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+
+    const formattedTrends = focusTrends.map(trend => ({
+      month: monthNames[trend._id.month - 1],
+      focus: Math.round(trend.averageFocus),
+      meetings: trend.totalMeetings
+    }));
     
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="meeting-report-${meetingId}.pdf"`);
@@ -246,23 +341,24 @@ router.get('/pdf/subject/:subjectId', auth, async (req, res) => {
       doc.moveDown();
 
       // Meeting Details by Class
-      subject.kelas.forEach(kelas => {
-        const classMeetings = meetings.filter(m => m.kelas === kelas);
-        if (classMeetings.length > 0) {
-          doc.fontSize(14).text(`${kelas} - Meeting History`, { underline: true });
-          doc.fontSize(10);
+       .text(`Total Classes: ${totalKelas}`)
+       .text(`Total Subjects: ${totalMataKuliah}`)
+       .text(`Total Meetings: ${totalPertemuan}`)
+       .text(`Total Instructors: ${totalDosen}`)
+       .text(`Average Focus Rate: ${averageFocus.toFixed(2)}%`);
           
           classMeetings.forEach((meeting, index) => {
             if (doc.y > 700) {
               doc.addPage();
-            }
+    if (formattedTrends.length > 0) {
             doc.text(`Meeting ${meeting.pertemuan_ke} (${meeting.tanggal.toLocaleDateString()}): ${meeting.hasil_akhir_kelas.fokus.toFixed(1)}% focus, ${meeting.hasil_akhir_kelas.jumlah_hadir} students`);
           });
           
-          doc.moveDown();
+      formattedTrends.forEach((trend) => {
         }
       });
-    } else {
+        const subjectName = meeting.mata_kuliah_id ? meeting.mata_kuliah_id.nama : meeting.mata_kuliah;
+        doc.text(`${subjectName} - ${meeting.kelas} (Meeting ${meeting.pertemuan_ke}): ${meeting.hasil_akhir_kelas.fokus.toFixed(1)}% focus on ${new Date(meeting.tanggal).toLocaleDateString()}`);
       doc.fontSize(12).text('No meetings found for this subject.');
     }
 
